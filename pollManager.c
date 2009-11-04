@@ -8,8 +8,10 @@ Bastian Ruppert
 
 static int PollManagerPollTrue = 0;
 static int PollManagerSingleton = 0;
+static int PollMngSrcsLen=0;
 
-static struct pollfd fdinfo[2];
+static _pollMngSrcContainer_t * pollMngSrcCont = 0;
+
 
 /* \brief Initialisiert den PollManager!
  * \param pollMngPollSources Der Parameter pollMngPollSources muss vom 
@@ -26,34 +28,47 @@ static struct pollfd fdinfo[2];
  *        pollMngPollSources{ 
  * \return 0 on success, -1 on failure and errno is set to EBUSY or EINVAL
  */
-int pollMngInit(_pollMngSrc_t * pollMngPollSources,int pollSrcsLen)
+int pollMngInit(_pollMngSrcContainer_t * thePollMngPollSources,int pollSrcsLen)
 {
   int i = 0;
-  int len = pollSrcsLen;
-  //  printf("sizeof(fdinfo)/sizeof(..) : %i \n",sizeof(fdinfo)/sizeof(struct pollfd));
+    //  printf("sizeof(fdinfo)/sizeof(..) : %i \n",sizeof(fdinfo)/sizeof(struct pollfd));
+  
+  if((sizeof(pollMngSrcCont->fdinfo)/sizeof(struct pollfd))<pollSrcsLen)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  if(0==thePollMngPollSources)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  pollMngSrcCont = thePollMngPollSources;
+  PollMngSrcsLen = pollSrcsLen;
   if(PollManagerSingleton)
     {
       errno = EBUSY;
       return -1;
     }
-  else if((sizeof(fdinfo)/sizeof(struct pollfd))<len)
+  
+  if(PollManagerSingleton)
     {
-      errno = EINVAL;
+      errno = EBUSY;
       return -1;
     }
   else
     {
-      for(i=0;i<len;i++)
+      for(i=0;i<PollMngSrcsLen;i++)
 	{
-	  if(pollMngPollSources[i].readFnk)
+	  if(pollMngSrcCont->Srcs[i].readFnk)
 	    {
-	      fdinfo[i].events = POLLIN | POLLPRI;
+	      pollMngSrcCont->fdinfo[i].events = POLLIN | POLLPRI;
 	    }
-	  if(pollMngPollSources[i].writeFnk)
+	  if(pollMngSrcCont->Srcs[i].writeFnk)
 	    {
-	      fdinfo[i].events = POLLOUT | POLLWRNORM;
+	      pollMngSrcCont->fdinfo[i].events = POLLOUT | POLLWRNORM;
 	    }
-	  fdinfo[i].fd=pollMngPollSources[i].fd;
+	  pollMngSrcCont->fdinfo[i].fd=pollMngSrcCont->Srcs[i].fd;
 	}
       PollManagerPollTrue = 1;
       PollManagerSingleton = 1;
@@ -67,11 +82,11 @@ void pollMngSuspendPolling()
   PollManagerSingleton=0;
 }
 
-int pollMngPoll(_pollMngSrc_t  * pollMngPollSources,int pollSrcsLen)
+int pollMngPoll()
 {
   int i = 0;
   int numEvents;
-  int len = pollSrcsLen;
+  int len = PollMngSrcsLen;
   char buf[256];
   char * writebuf;
   int tmp;
@@ -82,57 +97,58 @@ int pollMngPoll(_pollMngSrc_t  * pollMngPollSources,int pollSrcsLen)
     }
   while(PollManagerPollTrue)
     {
-      ec_neg1( numEvents = poll(fdinfo,len,-1) )
+      ec_neg1( numEvents = poll(pollMngSrcCont->fdinfo,len,-1) )
 	/*printf("numEvts :%i,fd:%i,events:[0x%x],revents:[0x%x] \n",
 	       numEvents,\
 	       fdinfo[0].fd,\
 	       fdinfo[0].events,\
 	       fdinfo[0].revents);*/
-	for(i=0;i< len ; i++)
+	for(i=0;i < PollMngSrcsLen ; i++)
 	  {
-	    if(fdinfo[i].revents & POLLHUP && pollMngPollSources[i].pollhupFnk) 
+	    if(pollMngSrcCont->fdinfo[i].revents & POLLHUP && \
+	       pollMngSrcCont->Srcs[i].pollhupFnk) 
 	      {
-		ec_neg1( pollMngPollSources[i].pollhupFnk(i))
+		ec_neg1( pollMngSrcCont->Srcs[i].pollhupFnk(i))
 		  break;
 	      }
-	    if(fdinfo[i].revents & POLLNVAL) 
+	    if(pollMngSrcCont->fdinfo[i].revents & POLLNVAL) 
 	      {
 		errno = EINVAL;
 		EC_FAIL;
 	      }
-	    if(fdinfo[i].revents & POLLERR) 
+	    if(pollMngSrcCont->fdinfo[i].revents & POLLERR) 
 	      {
 		errno = EIO;
 		EC_FAIL;
 	      }	
-	    if(fdinfo[i].revents & POLLRDHUP) 
+	    if(pollMngSrcCont->fdinfo[i].revents & POLLRDHUP) 
 	      {
 		errno = ENOTCONN;
 		EC_FAIL;
 	      }
-	    if(fdinfo[i].revents & (POLLIN | POLLPRI) 
-	       && pollMngPollSources[i].readFnk)
+	    if(pollMngSrcCont->fdinfo[i].revents & (POLLIN | POLLPRI) 
+	       && pollMngSrcCont->Srcs[i].readFnk)
 	      {
-		/*printf("pollMngPollSources[i].readFnk(i:%i, fd:%i\n",i, \
+		/*printf("Srcs[i].readFnk(i:%i, fd:%i\n",i, \
 		  fdinfo[i].fd     );*/
 
-		ec_neg1( tmp = read(fdinfo[i].fd, buf, 256))
+		ec_neg1( tmp = read(pollMngSrcCont->fdinfo[i].fd, buf, 256))
 		  //if(tmp)
 		  //  {
-		  ec_neg1( pollMngPollSources[i].readFnk(buf,\
+		  ec_neg1( pollMngSrcCont->Srcs[i].readFnk(buf,\
 							 tmp,\
 							 i,\
-							 (void*)&pollMngPollSources[i]\
+							 (void*)&pollMngSrcCont->Srcs[i]\
 			   ))
 		  // }
 		  //continue;
 		  //break;
 	      }
-	    if(fdinfo[i].revents & (POLLOUT | POLLWRNORM) 
-	       && pollMngPollSources[i].writeFnk)
+	    if(pollMngSrcCont->fdinfo[i].revents & (POLLOUT | POLLWRNORM) 
+	       && pollMngSrcCont->Srcs[i].writeFnk)
 	      {                             //daten zum senden holen
-		tmp = pollMngPollSources[i].writeFnk(writebuf,i);
-		ec_neg1( write(fdinfo[i].fd,writebuf,tmp) )
+		tmp = pollMngSrcCont->Srcs[i].writeFnk(writebuf,i);
+		ec_neg1( write(pollMngSrcCont->fdinfo[i].fd,writebuf,tmp) )
 		  //break;
 	      }
 	  }//end for

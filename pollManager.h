@@ -5,6 +5,8 @@ Bastian Ruppert
 #ifndef __POLLMANAGER_H__
 #define __POLLMANAGER_H__
 
+#define POLLMNGMAXSOURCES 2 
+
 typedef struct
 {
   int fd;
@@ -14,10 +16,16 @@ typedef struct
   int (*writeFnk)(char * buf,int pMngIndex);  
 }_pollMngSrc_t;
 
-int pollMngInit(_pollMngSrc_t * pollMngPollSources,int pollSrcsLen);
+typedef struct
+{
+  struct pollfd fdinfo[POLLMNGMAXSOURCES];
+  _pollMngSrc_t Srcs[POLLMNGMAXSOURCES];
+}_pollMngSrcContainer_t;
+
+int pollMngInit(_pollMngSrcContainer_t * pollMngPollSources,int pollSrcsLen);
 
 void pollMngSuspendPolling();
 
-int pollMngPoll(_pollMngSrc_t * pollMngPollSources,int pollSrcsLen);
+int pollMngPoll();
 
 #endif /* __RUPSOCK_H__ */
