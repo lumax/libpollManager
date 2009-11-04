@@ -108,7 +108,8 @@ int pollMngPoll()
 	    if(pollMngSrcCont->fdinfo[i].revents & POLLHUP && \
 	       pollMngSrcCont->Srcs[i].pollhupFnk) 
 	      {
-		ec_neg1( pollMngSrcCont->Srcs[i].pollhupFnk(i))
+		ec_neg1( pollMngSrcCont->Srcs[i].pollhupFnk(i,\
+							    pollMngSrcCont->Srcs[i].userDat))
 		  break;
 	      }
 	    if(pollMngSrcCont->fdinfo[i].revents & POLLNVAL) 
@@ -138,7 +139,7 @@ int pollMngPoll()
 		  ec_neg1( pollMngSrcCont->Srcs[i].readFnk(buf,\
 							 tmp,\
 							 i,\
-							 (void*)&pollMngSrcCont->Srcs[i]\
+							 &pollMngSrcCont->Srcs[i].userDat\
 			   ))
 		  // }
 		  //continue;
@@ -147,7 +148,8 @@ int pollMngPoll()
 	    if(pollMngSrcCont->fdinfo[i].revents & (POLLOUT | POLLWRNORM) 
 	       && pollMngSrcCont->Srcs[i].writeFnk)
 	      {                             //daten zum senden holen
-		tmp = pollMngSrcCont->Srcs[i].writeFnk(writebuf,i);
+		tmp = pollMngSrcCont->Srcs[i].writeFnk(writebuf,i,\
+							    pollMngSrcCont->Srcs[i].userDat);
 		ec_neg1( write(pollMngSrcCont->fdinfo[i].fd,writebuf,tmp) )
 		  //break;
 	      }

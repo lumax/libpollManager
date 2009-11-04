@@ -10,10 +10,11 @@ Bastian Ruppert
 typedef struct
 {
   int fd;
+  void * userDat;
   //  const char * name;
-  int (*readFnk)(char * buf,int len,int pMngIndex,void * dat);
-  int (*pollhupFnk)(int pMngIndex); // Gegenseite hat aufgelegt
-  int (*writeFnk)(char * buf,int pMngIndex);  
+  int (*readFnk)(char * buf,int len,int pMngIndex,void * userDat);
+  int (*pollhupFnk)(int pMngIndex,void * userDat); // Gegenseite hat aufgelegt
+  int (*writeFnk)(char * buf,int pMngIndex,void * userDat);  
 }_pollMngSrc_t;
 
 typedef struct
