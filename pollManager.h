@@ -25,6 +25,8 @@ typedef struct
 
 int pollMngInit(_pollMngSrcContainer_t * pollMngPollSources,int pollSrcsLen);
 
+int pollMngSetSrc(_pollMngSrc_t * src,int index);
+
 void pollMngSuspendPolling();
 
 int pollMngPoll();

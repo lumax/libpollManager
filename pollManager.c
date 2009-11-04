@@ -60,19 +60,43 @@ int pollMngInit(_pollMngSrcContainer_t * thePollMngPollSources,int pollSrcsLen)
     {
       for(i=0;i<PollMngSrcsLen;i++)
 	{
-	  if(pollMngSrcCont->Srcs[i].readFnk)
+	  if(pollMngSetSrc(&pollMngSrcCont->Srcs[i],i)!=0)
 	    {
-	      pollMngSrcCont->fdinfo[i].events = POLLIN | POLLPRI;
+	      return -1;
 	    }
-	  if(pollMngSrcCont->Srcs[i].writeFnk)
-	    {
-	      pollMngSrcCont->fdinfo[i].events = POLLOUT | POLLWRNORM;
-	    }
-	  pollMngSrcCont->fdinfo[i].fd=pollMngSrcCont->Srcs[i].fd;
 	}
       PollManagerPollTrue = 1;
       PollManagerSingleton = 1;
     }
+  return 0;
+}
+
+int pollMngSetSrc(_pollMngSrc_t * src,int index)
+{
+  if(index<0||index>=PollMngSrcsLen)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  if(0==src)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  
+  memcpy((void *)&pollMngSrcCont->Srcs[index],\
+	 (void *)src,\
+	 sizeof(_pollMngSrc_t));
+  
+  if(pollMngSrcCont->Srcs[index].readFnk)
+    {
+      pollMngSrcCont->fdinfo[index].events = POLLIN | POLLPRI;
+    }
+  if(pollMngSrcCont->Srcs[index].writeFnk)
+    {
+      pollMngSrcCont->fdinfo[index].events = POLLOUT | POLLWRNORM;
+    }
+  pollMngSrcCont->fdinfo[index].fd=pollMngSrcCont->Srcs[index].fd;
   return 0;
 }
 
