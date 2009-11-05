@@ -87,8 +87,9 @@ int pollMngSetSrc(_pollMngSrc_t * src,int index)
   memcpy((void *)&pollMngSrcCont->Srcs[index],\
 	 (void *)src,\
 	 sizeof(_pollMngSrc_t));
-  
-  if(pollMngSrcCont->Srcs[index].readFnk)
+  //pollMngSrcCont->fdinfo[index] resetten!
+  if(pollMngSrcCont->Srcs[index].readFnk|| \
+     pollMngSrcCont->Srcs[index].conListenerFnk)
     {
       pollMngSrcCont->fdinfo[index].events = POLLIN | POLLPRI;
     }
@@ -122,11 +123,15 @@ int pollMngPoll()
   while(PollManagerPollTrue)
     {
       ec_neg1( numEvents = poll(pollMngSrcCont->fdinfo,len,-1) )
-	/*printf("numEvts :%i,fd:%i,events:[0x%x],revents:[0x%x] \n",
+	for(i=0;i < PollMngSrcsLen ; i++)
+	  {
+	printf("numEvts:%i index:%i,fd:%i,events:[0x%x],revents:[0x%x] \n",
 	       numEvents,\
-	       fdinfo[0].fd,\
-	       fdinfo[0].events,\
-	       fdinfo[0].revents);*/
+	       i,\
+	       pollMngSrcCont->fdinfo[i].fd,\
+	       pollMngSrcCont->fdinfo[i].events,\
+	       pollMngSrcCont->fdinfo[i].revents);
+	  }
 	for(i=0;i < PollMngSrcsLen ; i++)
 	  {
 	    if(pollMngSrcCont->fdinfo[i].revents & POLLHUP && \
@@ -151,23 +156,30 @@ int pollMngPoll()
 		errno = ENOTCONN;
 		EC_FAIL;
 	      }
-	    if(pollMngSrcCont->fdinfo[i].revents & (POLLIN | POLLPRI) 
-	       && pollMngSrcCont->Srcs[i].readFnk)
+	    if(pollMngSrcCont->fdinfo[i].revents & (POLLIN | POLLPRI) )
 	      {
-		/*printf("Srcs[i].readFnk(i:%i, fd:%i\n",i, \
-		  fdinfo[i].fd     );*/
-
-		ec_neg1( tmp = read(pollMngSrcCont->fdinfo[i].fd, buf, 256))
-		  //if(tmp)
-		  //  {
-		  ec_neg1( pollMngSrcCont->Srcs[i].readFnk(buf,\
-							 tmp,\
-							 i,\
-							 &pollMngSrcCont->Srcs[i].userDat\
-			   ))
-		  // }
-		  //continue;
-		  //break;
+		if(pollMngSrcCont->Srcs[i].conListenerFnk)
+		  {
+		    ec_neg1( pollMngSrcCont->Srcs[i].conListenerFnk(i, \
+									   pollMngSrcCont->Srcs[i].userDat))
+		      break;
+		      }
+		if(pollMngSrcCont->Srcs[i].readFnk)
+		  {
+		    /*printf("Srcs[i].readFnk(i:%i, fd:%i\n",i,	\
+		      pollMngSrcCont->fdinfo[i].fd     );*/
+		    ec_neg1( tmp = read(pollMngSrcCont->fdinfo[i].fd, buf, 256))
+		      //if(tmp)
+		      //  {
+		      ec_neg1( pollMngSrcCont->Srcs[i].readFnk(buf,	\
+							       tmp,	\
+							       i,	\
+							       pollMngSrcCont->Srcs[i].userDat	\
+							       ))
+		      // }
+		      //continue;
+		      //break;
+		      }
 	      }
 	    if(pollMngSrcCont->fdinfo[i].revents & (POLLOUT | POLLWRNORM) 
 	       && pollMngSrcCont->Srcs[i].writeFnk)
