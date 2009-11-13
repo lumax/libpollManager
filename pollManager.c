@@ -12,10 +12,46 @@ static int PollMngSrcsLen=0;
 
 static _pollMngSrcContainer_t * pollMngSrcCont = 0;
 
+/**
+ * \brief fügt Daten der #_pollMngSrc_t dem fdinfo Array hinzu
+ *
+ * Initialisiert das fd Array mit den Daten aller PollSrcs. Das fd Array 
+ * wird von poll benötigt.
+ */
+int pollMngSetSrc(_pollMngSrc_t * src,int index)
+{
+  if(index<0||index>=PollMngSrcsLen)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  if(0==src)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  
+  memcpy((void *)&pollMngSrcCont->Srcs[index],\
+	 (void *)src,\
+	 sizeof(_pollMngSrc_t));
+  //pollMngSrcCont->fdinfo[index] resetten!
+  if(pollMngSrcCont->Srcs[index].readFnk|| \
+     pollMngSrcCont->Srcs[index].conListenerFnk)
+    {
+      pollMngSrcCont->fdinfo[index].events = POLLIN | POLLPRI;
+    }
+  if(pollMngSrcCont->Srcs[index].writeFnk)
+    {
+      pollMngSrcCont->fdinfo[index].events = POLLOUT | POLLWRNORM;
+    }
+  pollMngSrcCont->fdinfo[index].fd=pollMngSrcCont->Srcs[index].fd;
+  return 0;
+}
+
 
 /* \brief Initialisiert den PollManager!
- * \param pollMngPollSources Der Parameter pollMngPollSources muss vom 
- *        Programmierer zur Verfügung gestellt werden.
+ * \param pollMngPollSources Der Parameter pollMngPollSources muss vom Programmierer zur Verfügung gestellt werden.
+ *        
  *        Bsp: 
  *            _pollMngSrc_t  pollMngPollSources[]={
  *             [0] = {
@@ -71,43 +107,28 @@ int pollMngInit(_pollMngSrcContainer_t * thePollMngPollSources,int pollSrcsLen)
   return 0;
 }
 
-int pollMngSetSrc(_pollMngSrc_t * src,int index)
-{
-  if(index<0||index>=PollMngSrcsLen)
-    {
-      errno = EINVAL;
-      return -1;
-    }
-  if(0==src)
-    {
-      errno = EINVAL;
-      return -1;
-    }
-  
-  memcpy((void *)&pollMngSrcCont->Srcs[index],\
-	 (void *)src,\
-	 sizeof(_pollMngSrc_t));
-  //pollMngSrcCont->fdinfo[index] resetten!
-  if(pollMngSrcCont->Srcs[index].readFnk|| \
-     pollMngSrcCont->Srcs[index].conListenerFnk)
-    {
-      pollMngSrcCont->fdinfo[index].events = POLLIN | POLLPRI;
-    }
-  if(pollMngSrcCont->Srcs[index].writeFnk)
-    {
-      pollMngSrcCont->fdinfo[index].events = POLLOUT | POLLWRNORM;
-    }
-  pollMngSrcCont->fdinfo[index].fd=pollMngSrcCont->Srcs[index].fd;
-  return 0;
-}
 
+
+/**
+ * \brief führt zum return der Funktion #pollMngPoll nach return von poll()
+ *
+ */
 void pollMngSuspendPolling()
 {
   PollManagerPollTrue=0;
   PollManagerSingleton=0;
 }
 
-int pollMngPoll()
+/**
+ * \brief poll Fnk des pollManangers
+ * \param timeout timeout in ms, negativ = kein timeout
+ * \return 0 on timeout , 1 after pollMngSuspendPolling and -1 on error
+ *
+ * Führt den poll Systemcall mit den fd's aus der pollManager Struktur aus.
+ * Wenn der pollManager-Struktur Funktionen für Lese und Schreib-events 
+ * hinzugefügt worden sind,werden diese aufgerufen.
+ */
+int pollMngPoll(int timeout)
 {
   int i = 0;
   int numEvents;
@@ -123,14 +144,18 @@ int pollMngPoll()
   while(PollManagerPollTrue)
     {
       ec_neg1( numEvents = poll(pollMngSrcCont->fdinfo,len,-1) )
-	for(i=0;i < PollMngSrcsLen ; i++)
+	/*	for(i=0;i < PollMngSrcsLen ; i++)
 	  {
-	    /*	printf("numEvts:%i index:%i,fd:%i,events:[0x%x],revents:[0x%x] \n",
+	    	printf("numEvts:%i index:%i,fd:%i,events:[0x%x],revents:[0x%x] \n",
 	       numEvents,\
 	       i,\
 	       pollMngSrcCont->fdinfo[i].fd,\
 	       pollMngSrcCont->fdinfo[i].events,\
-	       pollMngSrcCont->fdinfo[i].revents);*/
+	       pollMngSrcCont->fdinfo[i].revents);
+	  }*/
+	if(0==numEvents)         //timeout occured
+	  {
+	    return 0;
 	  }
 	for(i=0;i < PollMngSrcsLen ; i++)
 	  {
@@ -191,7 +216,7 @@ int pollMngPoll()
 	      }
 	  }//end for
     }//end while
-  return 0;
+  return 1;
 EC_CLEANUP_BGN
   return -1;
 EC_CLEANUP_END

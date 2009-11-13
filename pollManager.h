@@ -30,6 +30,6 @@ int pollMngSetSrc(_pollMngSrc_t * src,int index);
 
 void pollMngSuspendPolling();
 
-int pollMngPoll();
+int pollMngPoll(int timeout);
 
 #endif /* __RUPSOCK_H__ */
