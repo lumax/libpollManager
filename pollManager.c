@@ -125,12 +125,12 @@ int pollMngPoll()
       ec_neg1( numEvents = poll(pollMngSrcCont->fdinfo,len,-1) )
 	for(i=0;i < PollMngSrcsLen ; i++)
 	  {
-	printf("numEvts:%i index:%i,fd:%i,events:[0x%x],revents:[0x%x] \n",
+	    /*	printf("numEvts:%i index:%i,fd:%i,events:[0x%x],revents:[0x%x] \n",
 	       numEvents,\
 	       i,\
 	       pollMngSrcCont->fdinfo[i].fd,\
 	       pollMngSrcCont->fdinfo[i].events,\
-	       pollMngSrcCont->fdinfo[i].revents);
+	       pollMngSrcCont->fdinfo[i].revents);*/
 	  }
 	for(i=0;i < PollMngSrcsLen ; i++)
 	  {
