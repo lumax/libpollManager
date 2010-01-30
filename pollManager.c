@@ -101,7 +101,6 @@ int pollMngInit(_pollMngSrcContainer_t * thePollMngPollSources,int pollSrcsLen)
 	      return -1;
 	    }
 	}
-      PollManagerPollTrue = 1;
       PollManagerSingleton = 1;
     }
   return 0;
@@ -122,11 +121,13 @@ void pollMngSuspendPolling()
 /**
  * \brief poll Fnk des pollManangers
  * \param timeout timeout in ms, negativ = kein timeout
- * \return 0 on timeout , 1 after pollMngSuspendPolling and -1 on error
- *
+ * \return 1 on timeout , 0 after pollMngSuspendPolling or OK if timeout>0 and -1 on error
+ * 
  * Führt den poll Systemcall mit den fd's aus der pollManager Struktur aus.
  * Wenn der pollManager-Struktur Funktionen für Lese und Schreib-events 
  * hinzugefügt worden sind,werden diese aufgerufen.
+ * Sollte timeout>0 sein, gibt die Funktion 1 zurück, wenn Timeout 
+ * abgelaufen ist 1.
  */
 int pollMngPoll(int timeout)
 {
@@ -141,8 +142,13 @@ int pollMngPoll(int timeout)
       errno = EACCES;
       return -1;
     }
+  PollManagerPollTrue = 1;
   while(PollManagerPollTrue)
     {
+      if(timeout>=0)
+	{
+	  PollManagerPollTrue=0;
+	}
       ec_neg1( numEvents = poll(pollMngSrcCont->fdinfo,len,-1) )
 	/*	for(i=0;i < PollMngSrcsLen ; i++)
 	  {
@@ -155,7 +161,7 @@ int pollMngPoll(int timeout)
 	  }*/
 	if(0==numEvents)         //timeout occured
 	  {
-	    return 0;
+	    return 1;
 	  }
 	for(i=0;i < PollMngSrcsLen ; i++)
 	  {
@@ -216,7 +222,7 @@ int pollMngPoll(int timeout)
 	      }
 	  }//end for
     }//end while
-  return 1;
+  return 0;
 EC_CLEANUP_BGN
   return -1;
 EC_CLEANUP_END
